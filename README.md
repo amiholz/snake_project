@@ -1,1 +1,1 @@
-"# snake_project" 
+# snake_project
