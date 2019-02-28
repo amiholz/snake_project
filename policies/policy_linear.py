@@ -27,7 +27,7 @@ class Linear(bp.Policy):
 
         try:
             # self.theta
-            delta = self.theta*self.get_small_state(new_state, )
+            # delta = self.theta*self.get_small_state(new_state, )
             # update = self.rate*
 
             if round % 100 == 0:
@@ -48,7 +48,7 @@ class Linear(bp.Policy):
         board, head = new_state
         head_pos, direction = head
 
-        next_position = head_pos.move(bp.Policy.TURNS[direction][a])
+        next_position = head_pos.move(bp.Policy.TURNS[direction][action])
         r = next_position[0]
         c = next_position[1]
         small_state = np.zeros(2*NUM_OF_FEATURES)
