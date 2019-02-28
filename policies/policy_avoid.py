@@ -36,7 +36,9 @@ class Avoid(bp.Policy):
 
         board, head = new_state
         head_pos, direction = head
-
+        # print(round,prev_state, prev_action, reward, new_state)
+        # print("head_pos: ", head_pos[0], head_pos[1])
+        # print("direction: ", direction)
         if np.random.rand() < self.epsilon:
             return np.random.choice(bp.Policy.ACTIONS)
 
