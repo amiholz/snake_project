@@ -38,22 +38,34 @@ class Custom(bp.Policy):
                       metrics=['accuracy'])
 
     def learn(self, round, prev_state, prev_action, reward, new_state, too_slow):
-
+        print("\n\nLEARN, reward:", self.epsilon ,"|slow:",too_slow)
         try:
-            # get window around the head
             small_board = self.get_small_board(prev_state)
-            # get feature vector according the features in the window
-            feature_vector = self.get_feature_vector(small_board)
-            # get result for the last move
+            feature_vector = self.get_feature_vector(small_board).reshape((1,99))
             result = self.model.predict(feature_vector)
+            print("last result:",result, "prev_action:", prev_action)
 
             # get the next feature vector to calculate the next Q value
             next_small_board = self.get_small_board(new_state)
-            next_feature_vector = self.get_feature_vector(next_small_board)
+            next_feature_vector = self.get_feature_vector(next_small_board).reshape((1,99))
+            # print("next_small_board:\n",next_small_board)
 
             # get the "label" as array of values for action, and the last action updates with the given reward
-            result[bp.Policy.ACTIONS.index(prev_action)] -= reward+self.gamma*(np.max(self.model.predict(next_feature_vector)))
-            self.model.fit(feature_vector, result, batch_size=1, nb_epoch=1, verbose=0)
+            next_result = self.model.predict(next_feature_vector)
+            # print("next_result:", next_result)
+
+            result[0,bp.Policy.ACTIONS.index(prev_action)] -= reward+self.gamma*(np.max(next_result))
+            print("update result:", result)
+
+            # a = []
+            # for layer in self.model.layers:
+            #     a.append(layer.get_weights())
+            #
+            self.model.fit(feature_vector, result, verbose=0)
+            # count = 0
+            # for layer in self.model.layers:
+            #     print(layer.get_weights()-a[count])
+            #     count+=1
 
 
             if round % 100 == 0:
@@ -104,8 +116,6 @@ class Custom(bp.Policy):
             elif head_pos[0]==rows-1:
                 board = np.roll(board,-1,axis=0)
                 new_head[0]-=1
-
-        print(board[new_head[0]-1:new_head[0]+2,new_head[1]-1:new_head[1]+2], "\n")
         return np.rot90(board[new_head[0]-1:new_head[0]+2,new_head[1]-1:new_head[1]+2], ROTATIONS[direction])
 
     def get_feature_vector(self, board):
@@ -121,8 +131,8 @@ class Custom(bp.Policy):
         return feature_vector
 
     def act(self, round, prev_state, prev_action, reward, new_state, too_slow):
-        print("act, epsilon:", self.epsilon)
-        if round%200==199:
+        # print("act, epsilon:", self.epsilon)
+        if round%20==19:
             self.epsilon*=0.9
 
         if np.random.rand() < self.epsilon:
@@ -134,6 +144,7 @@ class Custom(bp.Policy):
             # get window around the head
             small_board = self.get_small_board(new_state)
             # get feature vector according the features in the window
+            # print(small_board)
             feature_vector = self.get_feature_vector(small_board).reshape((1,99))
             # print(feature_vector, "\n")
             prediction = self.model.predict(feature_vector)
