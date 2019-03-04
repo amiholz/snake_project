@@ -38,12 +38,12 @@ class Custom(bp.Policy):
                       metrics=['accuracy'])
 
     def learn(self, round, prev_state, prev_action, reward, new_state, too_slow):
-        print("\n\nLEARN, reward:", self.epsilon ,"|slow:",too_slow)
+        # print("\n\nLEARN, reward:", self.epsilon ,"|slow:",too_slow)
         try:
             small_board = self.get_small_board(prev_state)
             feature_vector = self.get_feature_vector(small_board).reshape((1,99))
             result = self.model.predict(feature_vector)
-            print("last result:",result, "prev_action:", prev_action)
+            # print("last result:",result, "prev_action:", prev_action)
 
             # get the next feature vector to calculate the next Q value
             next_small_board = self.get_small_board(new_state)
@@ -55,7 +55,7 @@ class Custom(bp.Policy):
             # print("next_result:", next_result)
 
             result[0,bp.Policy.ACTIONS.index(prev_action)] = reward+self.gamma*(np.max(next_result))
-            print("update result:", result)
+            # print("update result:", result)
 
             # a = []
             # for layer in self.model.layers:
@@ -149,6 +149,6 @@ class Custom(bp.Policy):
             # print(feature_vector, "\n")
             prediction = self.model.predict(feature_vector)
             action = bp.Policy.ACTIONS[np.argmax(prediction)]
-            print("PREDICTION:", prediction, "| argmax:", np.argmax(prediction), "| ACTION:", action)
+            # print("PREDICTION:", prediction, "| argmax:", np.argmax(prediction), "| ACTION:", action)
             return action
 
