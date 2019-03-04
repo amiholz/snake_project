@@ -27,7 +27,7 @@ class Custom(bp.Policy):
     def init_run(self):
         self.r_sum = 0
         self.model = Sequential()
-        self.model.add(Convolution2D(5, 3, 3, activation='relu', input_shape=(1,3,3)))
+        self.model.add(Dense(5, activation='relu', input_shape=(1,3,3)))
         self.model.add(Convolution2D(5, 3, 3, activation='relu'))
         self.model.add(MaxPooling2D(pool_size=(2,2)))
         self.model.add(Dropout(0.25))
@@ -61,6 +61,11 @@ class Custom(bp.Policy):
             self.log(e, 'EXCEPTION')
 
     def get_small_board(self, new_state):
+        """
+        function to get small window around the head
+        :param new_state: the current state (head, diretion and board)
+        :return: window around the head / patch of the board around the head
+        """
         board, head = new_state
         head_pos, direction = head
         rows, cols = board.shape
@@ -83,20 +88,35 @@ class Custom(bp.Policy):
             elif head_pos[0]==rows-1:
                 board = np.roll(board,-1,axis=0)
                 new_head[0]-=1
-
         return np.rot90(board[new_head[0]-1:new_head[0]+2,new_head[1]-1:new_head[1]+2], ROTATIONS[direction])
 
-    def get_theta(self, board):
+    def get_feature_vector(self, board):
+        """
+        get the feature vector
+        :param board: the current given board
+        :return: HOT vector that indicates the feature in the relevant index in the vector
+        """
+        feature_vector = np.zeros(board.size*NUM_OF_FEATURES)
+        for i in range(board.size):
+            row, col = i//board.shape[1],i%board.shape[1]
+            feature_vector[i*NUM_OF_FEATURES+board[row,col]] = 1
+        return feature_vector
 
-
-
-def act(self, round, prev_state, prev_action, reward, new_state, too_slow):
+    def act(self, round, prev_state, prev_action, reward, new_state, too_slow):
+        if round%200==199:
+            self.epsilon*=0.9
+        # get window around the head
         small_board = self.get_small_board(new_state)
+        # get feature vector according the features in the window
+        feature_vector = self.get_feature_vector(small_board)
 
         if np.random.rand() < self.epsilon:
-            return np.random.choice(bp.Policy.ACTIONS)
+            action = np.random.choice(bp.Policy.ACTIONS)
+            print("RANDOM:", action)
+            return action
 
         else:
-
-            # action = np.argmax(self.model.predict())
-            return np.random.choice(bp.Policy.ACTIONS)
+            prediction = self.model.predict(feature_vector)
+            action = bp.Policy.ACTIONS[np.argmax(prediction)]
+            print("PREDICTION:", prediction, "| ACTION:", action)
+            return action
