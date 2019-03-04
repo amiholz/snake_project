@@ -8,6 +8,8 @@ LEARNING_RATE = 0.3
 GAMMA = 0.9
 SHIFT = 1
 EPSILON = 0.1
+ROTATIONS = {'N':0, 'S':2, 'W':-1, 'E':1}
+NUM_OF_FEATURES = 11
 
 class Custom(bp.Policy):
     """
@@ -24,16 +26,16 @@ class Custom(bp.Policy):
 
     def init_run(self):
         self.r_sum = 0
-        # self.model = Sequential()
-        # self.model.add(Convolution2D(5, 3, 3, activation='relu', input_shape=(1,3,3)))
-        # self.model.add(Convolution2D(5, 3, 3, activation='relu'))
-        # self.model.add(MaxPooling2D(pool_size=(2,2)))
-        # self.model.add(Dropout(0.25))
-        # self.model.add(Flatten())
-        # self.model.add(Dense(3, activation='softmax'))
-        # self.model.compile(loss='mean_squared_error',
-        #               optimizer='adam',
-        #               metrics=['accuracy'])
+        self.model = Sequential()
+        self.model.add(Convolution2D(5, 3, 3, activation='relu', input_shape=(1,3,3)))
+        self.model.add(Convolution2D(5, 3, 3, activation='relu'))
+        self.model.add(MaxPooling2D(pool_size=(2,2)))
+        self.model.add(Dropout(0.25))
+        self.model.add(Flatten())
+        self.model.add(Dense(3, activation='softmax'))
+        self.model.compile(loss='mean_squared_error',
+                      optimizer='adam',
+                      metrics=['accuracy'])
 
 
     def learn(self, round, prev_state, prev_action, reward, new_state, too_slow):
@@ -58,13 +60,38 @@ class Custom(bp.Policy):
             self.log("Something Went Wrong...", 'EXCEPTION')
             self.log(e, 'EXCEPTION')
 
-    def get_small_board(self, new_state, shift):
+    def get_small_board(self, new_state):
         board, head = new_state
         head_pos, direction = head
         rows, cols = board.shape
+        new_head = list(head_pos)
+        if head_pos[1]==0:
+            board = np.roll(board,1,axis=1)
+            new_head[1]+=1
+            if head_pos[0]==0:
+                board = np.roll(board,1,axis=0)
+                new_head[0]+=1
+            elif head_pos[0]==rows-1:
+                board = np.roll(board,-1,axis=0)
+                new_head[0]-=1
+        elif head_pos[1]==cols-1:
+            board = np.roll(board,-1,axis=1)
+            new_head[1]-=1
+            if head_pos[0]==0:
+                board = np.roll(board,1,axis=0)
+                new_head[0]+=1
+            elif head_pos[0]==rows-1:
+                board = np.roll(board,-1,axis=0)
+                new_head[0]-=1
 
-    def act(self, round, prev_state, prev_action, reward, new_state, too_slow):
-        small_board = self.get_small_board(new_state, self.shift)
+        return np.rot90(board[new_head[0]-1:new_head[0]+2,new_head[1]-1:new_head[1]+2], ROTATIONS[direction])
+
+    def get_theta(self, board):
+
+
+
+def act(self, round, prev_state, prev_action, reward, new_state, too_slow):
+        small_board = self.get_small_board(new_state)
 
         if np.random.rand() < self.epsilon:
             return np.random.choice(bp.Policy.ACTIONS)

@@ -103,6 +103,7 @@ class Linear(bp.Policy):
             #print("\t"+str([ float('%.2f' % elem) for elem in weights[11:]]))
 
             self.rewards[feature] += (self.theta.dot(weights) - (reward+self.gamma*self.get_best_value(new_state)))
+
             if feature<NUM_OF_FEATURES:
                 self.rewards[feature] /=2
             #print("feature:", feature, "| reward:", reward, "| dot:%.2f"%self.theta.dot(weights), "| best:%.2f"% self.get_best_value(new_state))
