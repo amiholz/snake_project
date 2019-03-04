@@ -137,7 +137,7 @@ class Custom(bp.Policy):
 
         if np.random.rand() < self.epsilon:
             action = np.random.choice(bp.Policy.ACTIONS)
-            print("RANDOM:", action)
+            # print("RANDOM:", action)
             return action
 
         else:
