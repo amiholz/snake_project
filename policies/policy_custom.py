@@ -54,7 +54,7 @@ class Custom(bp.Policy):
             next_result = self.model.predict(next_feature_vector)
             # print("next_result:", next_result)
 
-            result[0,bp.Policy.ACTIONS.index(prev_action)] -= reward+self.gamma*(np.max(next_result))
+            result[0,bp.Policy.ACTIONS.index(prev_action)] = reward+self.gamma*(np.max(next_result))
             print("update result:", result)
 
             # a = []

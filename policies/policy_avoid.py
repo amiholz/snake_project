@@ -6,7 +6,7 @@ EPSILON = 0.05
 class Avoid(bp.Policy):
     """
     A policy which avoids collisions with obstacles and other snakes. It has an epsilon parameter which controls the
-    percentag of actions which are randomly chosen.
+    percentage of actions which are randomly chosen.
     """
 
     def cast_string_args(self, policy_args):
