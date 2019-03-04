@@ -43,17 +43,10 @@ class Linear(bp.Policy):
 
     def learn(self, round, prev_state, prev_action, reward, new_state, too_slow):
         #print("* learn *")
+        if too_slow:
+            print(too_slow)
         try:
-            # feature = self.get_last_feature(prev_action, prev_state)
-            # #print("last:",prev_action,"| feature:", feature)
-            # delta = self.theta.dot(self.get_weights(prev_state, prev_action)) - (reward + self.gamma*self.get_best_value(new_state))
-            # #print("dot:", self.theta.dot(self.get_weights(prev_state, prev_action)))
-            # #print("best next feature:",self.get_best_value(new_state))
-            # #print("delta:",delta)
-            # self.theta[feature] -=  self.rate*delta
 
-            # #print("rewards:\t"+str(self.rewards[:11]))
-            # #print("\t\t"+str(self.rewards[11:]))
             self.theta -= self.rate*self.rewards
             self.rewards = np.zeros(2*NUM_OF_FEATURES)
 
@@ -93,6 +86,8 @@ class Linear(bp.Policy):
         return weights
 
     def act(self, round, prev_state, prev_action, reward, new_state, too_slow):
+        if too_slow:
+            print(too_slow)
         #print("epsilon:",self.epsilon)
         if round%200==199:
             self.epsilon*=0.9

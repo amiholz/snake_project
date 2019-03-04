@@ -1,7 +1,7 @@
 #!/bin/csh
 
 #SBATCH --cpus-per-task=2
-#SBATCH --output=<YOUR_OUTPUT_PATH_HERE>
+#SBATCH --output=/cs/usr/amiholz/bio3d/STUDIES/APML/snake_project/out.txt
 #SBATCH --mem-per-cpu=500M
 #SBATCH --account=aml
 #SBATCH --constraint="sm"
