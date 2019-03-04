@@ -13,31 +13,6 @@ EPSILON = 0.1
 ROTATIONS = {'N':0, 'S':2, 'W':-1, 'E':1}
 NUM_OF_FEATURES = 11
 
-
-num_classes = 10
-(x_train, y_train), (x_test, y_test) = mnist.load_data()
-x_train = x_train.reshape(60000, 784)
-x_test = x_test.reshape(10000, 784)
-x_train = x_train.astype('float32')
-x_test = x_test.astype('float32')
-x_train /= 255
-x_test /= 255
-# convert class vectors to binary class matrices
-y_train = keras.utils.to_categorical(y_train, num_classes)
-y_test = keras.utils.to_categorical(y_test, num_classes)
-model = Sequential()
-model.add(Dense(512, activation='relu', input_shape=(784,)))
-model.add(Dropout(0.2))
-model.add(Dense(512, activation='relu'))
-model.add(Dropout(0.2))
-model.add(Dense(num_classes, activation='softmax'))
-model.compile(loss='categorical_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
-print(np.argmax(model.predict(x_test[:3,:]), axis=1))
-print(np.argmax(y_test[:3],axis=1))
-
-
 class Custom(bp.Policy):
     """
     A policy which avoids collisions with obstacles and other snakes. It has an epsilon parameter which controls the
@@ -53,18 +28,14 @@ class Custom(bp.Policy):
 
     def init_run(self):
         self.r_sum = 0
-        # self.model = Sequential()
-        # self.model.add(Dense(10, activation='relu', input_dim=9*NUM_OF_FEATURES))
-        # # self.model.add(Dropout(0.2))
-        # self.model.add(Dense(3))
-        # # self.model.summary()
-        # self.model.compile(loss='mean_squared_error',
-        #               optimizer='adam',
-        #               metrics=['accuracy'])
-
-
-
-
+        self.model = Sequential()
+        self.model.add(Dense(10, activation='relu', input_shape=(9*NUM_OF_FEATURES,)))
+        # self.model.add(Dropout(0.2))
+        self.model.add(Dense(3))
+        # self.model.summary()
+        self.model.compile(loss='mean_squared_error',
+                      optimizer='adam',
+                      metrics=['accuracy'])
 
     def learn(self, round, prev_state, prev_action, reward, new_state, too_slow):
 
@@ -126,7 +97,15 @@ class Custom(bp.Policy):
             elif head_pos[0]==rows-1:
                 board = np.roll(board,-1,axis=0)
                 new_head[0]-=1
-        print(board[new_head[0]-1:new_head[0]+2,new_head[1]-1:new_head[1]+2])
+        else:
+            if head_pos[0]==0:
+                board = np.roll(board,1,axis=0)
+                new_head[0]+=1
+            elif head_pos[0]==rows-1:
+                board = np.roll(board,-1,axis=0)
+                new_head[0]-=1
+
+        print(board[new_head[0]-1:new_head[0]+2,new_head[1]-1:new_head[1]+2], "\n")
         return np.rot90(board[new_head[0]-1:new_head[0]+2,new_head[1]-1:new_head[1]+2], ROTATIONS[direction])
 
     def get_feature_vector(self, board):
@@ -142,10 +121,6 @@ class Custom(bp.Policy):
         return feature_vector
 
     def act(self, round, prev_state, prev_action, reward, new_state, too_slow):
-        print(np.argmax(model.predict(x_test[:3,:]), axis=1))
-        print(np.argmax(y_test[:3],axis=1))
-
-
         print("act, epsilon:", self.epsilon)
         if round%200==199:
             self.epsilon*=0.9
@@ -158,13 +133,11 @@ class Custom(bp.Policy):
         else:
             # get window around the head
             small_board = self.get_small_board(new_state)
-            print(small_board)
             # get feature vector according the features in the window
             feature_vector = self.get_feature_vector(small_board).reshape((1,99))
             # print(feature_vector, "\n")
             prediction = self.model.predict(feature_vector)
-            print("PREDICTION:", prediction)
             action = bp.Policy.ACTIONS[np.argmax(prediction)]
-            print("PREDICTION:", prediction, "| ACTION:", action)
+            print("PREDICTION:", prediction, "| argmax:", np.argmax(prediction), "| ACTION:", action)
             return action
 
