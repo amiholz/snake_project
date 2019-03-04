@@ -27,12 +27,10 @@ class Custom(bp.Policy):
     def init_run(self):
         self.r_sum = 0
         self.model = Sequential()
-        self.model.add(Dense(5, activation='relu', input_shape=(1,3,3)))
-        self.model.add(Convolution2D(5, 3, 3, activation='relu'))
-        self.model.add(MaxPooling2D(pool_size=(2,2)))
-        self.model.add(Dropout(0.25))
-        self.model.add(Flatten())
-        self.model.add(Dense(3, activation='softmax'))
+        self.model.add(Dense(10, activation='relu', input_shape=(9*NUM_OF_FEATURES)))
+        # self.model.add(Dropout(0.2))
+        self.model.add(Dense(3))
+        self.model.summary()
         self.model.compile(loss='mean_squared_error',
                       optimizer='adam',
                       metrics=['accuracy'])
@@ -41,10 +39,20 @@ class Custom(bp.Policy):
     def learn(self, round, prev_state, prev_action, reward, new_state, too_slow):
 
         try:
+            # get window around the head
+            small_board = self.get_small_board(prev_state)
+            # get feature vector according the features in the window
+            feature_vector = self.get_feature_vector(small_board)
+            # get result for the last move
+            result = self.model.predict(feature_vector)
 
-            # self.model.fit(X_train, Y_train,
-            #           batch_size=1, nb_epoch=10, verbose=1)
+            # get the next feature vector to calculate the next Q value
+            next_small_board = self.get_small_board(new_state)
+            next_feature_vector = self.get_feature_vector(next_small_board)
 
+            # get the "label" as array of values for action, and the last action updates with the given reward
+            result[bp.Policy.ACTIONS.index(prev_action)] -= reward+self.gamma*(np.max(self.model.predict(next_feature_vector)))
+            self.model.fit(feature_vector, result, batch_size=1, nb_epoch=1, verbose=0)
 
 
             if round % 100 == 0:
