@@ -86,8 +86,6 @@ class Linear(bp.Policy):
         return weights
 
     def act(self, round, prev_state, prev_action, reward, new_state, too_slow):
-        if too_slow:
-            print(too_slow)
         #print("epsilon:",self.epsilon)
         if round%200==199:
             self.epsilon*=0.9
@@ -95,7 +93,7 @@ class Linear(bp.Policy):
         #print("theta:\t"+str([ float('%.2f' % elem) for elem in self.theta[:11]]))
         #print("\t"+str([ float('%.2f' % elem) for elem in self.theta[11:]]))
 
-        if prev_state:
+        if prev_state and not too_slow:
             feature = self.get_last_feature(prev_action, prev_state)
             weights = self.get_weights(prev_state, prev_action)
 
