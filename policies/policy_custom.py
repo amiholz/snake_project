@@ -235,7 +235,7 @@ class Custom(bp.Policy):
             self.next_step_feature_vectors[self.counter] = feature_vector
             self.rewards[self.counter] = reward
             self.counter = (self.counter + 1) % self.batch_size
-            print("counter:", self.counter, "\treward:", reward)
+            print("counter:", self.counter, "\treward:", reward, "last action:", prev_action)
             print("last_mask:\n", self.last_mask)
             print("NEXT STATE : ")
             for i in range(len(bp.Policy.ACTIONS)):
