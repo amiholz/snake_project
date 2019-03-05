@@ -45,12 +45,12 @@ class Custom(bp.Policy):
                       metrics=['mae'])
         self.counter = 0
         self.last_feature_vector = None
-        self.last_Q_value = None
         self.batch_states = np.zeros((self.batch_size, WINDOW_SIZE*NUM_OF_FEATURES))
         self.next_step_feature_vectors = np.zeros((self.batch_size,3, WINDOW_SIZE*NUM_OF_FEATURES))
         self.rewards = np.zeros(self.batch_size)
         self.full_batch = False
         self.last_mask = None
+        self.mask = None
 
     def learn(self, round, prev_state, prev_action, reward, new_state, too_slow):
         # print("\n\nLEARN, reward:", self.epsilon ,"|slow:",too_slow)
@@ -225,17 +225,10 @@ class Custom(bp.Policy):
 
     def act(self, round, prev_state, prev_action, reward, new_state, too_slow):
 
-        # print("act, epsilon:", self.epsilon)
-
-        # if reward != 0:
-        # if reward != 0:
-        # print("* action:", prev_action, "reward:", reward)
-        # print("state:\n", np.where(self.last_feature_vector!=0))
-
         if round%EPSILON_ROUNDS==EPSILON_ROUNDS-1 and self.epsilon>self.min_epsilon:
             self.epsilon*=self.epsilon_rate
 
-        feature_vector, self.last_mask = self.get_feature_vector(new_state)
+        feature_vector, self.mask = self.get_feature_vector(new_state)
 
         if prev_state and not too_slow:
             self.batch_states[self.counter] = self.last_feature_vector
@@ -243,8 +236,11 @@ class Custom(bp.Policy):
             self.rewards[self.counter] = reward
             self.counter = (self.counter + 1) % self.batch_size
             print("counter:", self.counter, "\treward:", reward)
-            print("last_feature:\n", self.last_mask)
-            print("last_q_value:\n", self.last_Q_value)
+            print("last_mask:\n", self.last_mask)
+            print("NEXT STATE : ")
+            for i in range(len(bp.Policy.ACTIONS)):
+                print("action:", bp.Policy.ACTIONS[i])
+                print(self.mask[i])
             if self.counter == self.batch_size-1 and not self.full_batch:
                 self.full_batch = True
 
@@ -254,7 +250,7 @@ class Custom(bp.Policy):
         action = bp.Policy.ACTIONS[argmax]
         # print("\n\nround:", round, "predictions:\n", prediction, "\naction:", action)
         self.last_feature_vector = feature_vector[argmax]
-
+        self.last_mask = self.mask[argmax]
 
         if np.random.rand() < self.epsilon:
             action = np.random.choice(bp.Policy.ACTIONS)
