@@ -254,11 +254,13 @@ class Custom(bp.Policy):
 
         if np.random.rand() < self.epsilon:
             action = np.random.choice(bp.Policy.ACTIONS)
+            print("random:\n", action)
             self.last_feature_vector, self.last_mask = self.get_last_feature_vector(new_state, action)
             # print("\nRANDOM action:", action)
             # print("mask:\n", mask)
             return action
         else:
+            print("predictions:\n", prediction)
             # print("action:", action,"\nmask:\n", masks[argmax] )
             return action
 
