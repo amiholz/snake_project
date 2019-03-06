@@ -15,7 +15,9 @@ ROTATIONS = {'N':0, 'S':2, 'W':-1, 'E':1}
 NUM_OF_FEATURES = 11
 WINDOW_SIZE = 9
 EPSILON_ROUNDS = 20
-BATCH_SIZE = 10
+MIN_BATCH_SIZE = 16
+MAX_BATCH_SIZE = 256
+
 
 class Custom(bp.Policy):
     """
@@ -28,7 +30,7 @@ class Custom(bp.Policy):
         policy_args['min_epsilon'] = float(policy_args['min_epsilon']) if 'min_epsilon' in policy_args else MIN_EPSILON
         policy_args['epsilon_rate'] = float(policy_args['epsilon_rate']) if 'epsilon_rate' in policy_args else EPSILON_RATE
         policy_args['epsilon_rounds'] = float(policy_args['epsilon_rounds']) if 'epsilon_rounds' in policy_args else EPSILON_ROUNDS
-        policy_args['batch_size'] = float(policy_args['batch_size']) if 'batch_size' in policy_args else BATCH_SIZE
+        policy_args['batch_size'] = float(policy_args['batch_size']) if 'batch_size' in policy_args else MAX_BATCH_SIZE
         policy_args['gamma'] = float(policy_args['gamma']) if 'gamma' in policy_args else GAMMA
         policy_args['shift'] = float(policy_args['shift']) if 'shift' in policy_args else SHIFT
         return policy_args
@@ -36,42 +38,39 @@ class Custom(bp.Policy):
     def init_run(self):
         self.r_sum = 0
         self.model = Sequential()
-        self.model.add(Dense(50, activation='relu', input_shape=(WINDOW_SIZE*NUM_OF_FEATURES,)))
+        self.model.add(Dense(60, activation='relu', input_shape=(WINDOW_SIZE*NUM_OF_FEATURES,)))
         self.model.add(Dense(1))
         self.model.compile(loss='mean_squared_error',
                       optimizer='adam',
                       metrics=['mae'])
-        self.counter = 0
+        self.batch_counter = 0
         self.last_feature_vector = None
         self.batch_states = np.zeros((self.batch_size, WINDOW_SIZE*NUM_OF_FEATURES))
         self.next_step_feature_vectors = np.zeros((self.batch_size,3, WINDOW_SIZE*NUM_OF_FEATURES))
         self.rewards = np.zeros(self.batch_size)
+        self.batches_to_take = MIN_BATCH_SIZE
         self.full_batch = False
         self.last_mask = None
         self.masks = np.zeros((self.batch_size,3, 3))
         self.next_masks = np.zeros((self.batch_size,3, 3, 3))
 
     def learn(self, round, prev_state, prev_action, reward, new_state, too_slow):
-        # print("\n\nLEARN, reward:", self.epsilon ,"|slow:",too_slow)
         try:
-            # print("next_step_feature_vectors shape:", self.next_step_feature_vectors.shape)
-            # print("rewards:", self.rewards)
 
-            # get the max Q values for
-            Q_values = self.model.predict_on_batch(self.next_step_feature_vectors.reshape((3*self.batch_size, NUM_OF_FEATURES*WINDOW_SIZE)))
-            max_Q_values = np.reshape(Q_values, (self.batch_size,len(bp.Policy.ACTIONS))).max(axis=1)
-            # print("max_Q_values:", max_Q_values)
+            # case we did not collect enough samples
+            if not self.full_batch:
+                self.batches_to_take = self.batch_counter
 
-            # for i in range(self.masks.shape[0]):
-            #     print("mask:\n", self.masks[i])
+            sort_rewards = np.argsort(self.rewards) # sort rewards because we want the best learning
+            indices_to_take = sort_rewards[-self.batches_to_take:]
 
-            labels = self.rewards + (self.gamma*max_Q_values)
-            # print("\nrewards:\n", self.rewards[:last_index])
-            # print("max Q values:\n", self.max_Q_values[:last_index])
-            # print("labels:\n", labels)
-            # print("last states:\n", self.batch_states[:last_index])
+            # get the max Q values for the last "size of batch" examples
+            Q_values = self.model.predict_on_batch(self.next_step_feature_vectors[indices_to_take].reshape((3*self.batches_to_take, NUM_OF_FEATURES*WINDOW_SIZE)))
+            max_Q_values = np.reshape(Q_values, (self.batches_to_take,len(bp.Policy.ACTIONS))).max(axis=1)
 
-            self.model.train_on_batch(self.batch_states, labels)
+            labels = self.rewards[indices_to_take] + (self.gamma*max_Q_values)
+
+            self.model.train_on_batch(self.batch_states[indices_to_take], labels)
 
             if round % 100 == 0:
                 if round > self.game_duration - self.score_scope:
@@ -85,44 +84,6 @@ class Custom(bp.Policy):
         except Exception as e:
             self.log("Something Went Wrong...", 'EXCEPTION')
             self.log(e, 'EXCEPTION')
-
-    def get_small_board(self, new_state):
-        """
-        function to get small window around the head
-        :param new_state: the current state (head, diretion and board)
-        :return: window around the head / patch of the board around the head
-        """
-        board, head = new_state
-        head_pos, direction = head
-        rows, cols = board.shape
-        new_head = list(head_pos.move(direction))
-
-        if head_pos[1]<=1:
-            board = np.roll(board,2,axis=1)
-            new_head[1]+=2
-            if head_pos[0]<=1:
-                board = np.roll(board,2,axis=0)
-                new_head[0]+=2
-            elif head_pos[0]>=rows-2:
-                board = np.roll(board,-2,axis=0)
-                new_head[0]-=2
-        elif head_pos[1]>=cols-2:
-            board = np.roll(board,-2,axis=1)
-            new_head[1]-=2
-            if head_pos[0]<=1:
-                board = np.roll(board,2,axis=0)
-                new_head[0]+=2
-            elif head_pos[0]>=rows-2:
-                board = np.roll(board,-2,axis=0)
-                new_head[0]-=2
-        else:
-            if head_pos[0]<=1:
-                board = np.roll(board,2,axis=0)
-                new_head[0]+=2
-            elif head_pos[0]>=rows-2:
-                board = np.roll(board,-2,axis=0)
-                new_head[0]-=2
-        return np.rot90(board[new_head[0]-1:new_head[0]+2,new_head[1]-1:new_head[1]+2], ROTATIONS[direction])
 
     def get_vector(self, board):
         curr_feature_vector = np.zeros(WINDOW_SIZE*NUM_OF_FEATURES)
@@ -228,56 +189,51 @@ class Custom(bp.Policy):
         return self.get_vector(crop_rotate_board), crop_rotate_board
 
     def act(self, round, prev_state, prev_action, reward, new_state, too_slow):
-
         # epsilon decreases as we progress in the game
         if round%EPSILON_ROUNDS==EPSILON_ROUNDS-1 and self.epsilon>self.min_epsilon:
             self.epsilon*=self.epsilon_rate
 
-
+        # get 3 feature vectors and their masks (window around the head)
         feature_vector, masks = self.get_feature_vector(new_state)
 
+        # case of bad or good performence change size of batch
+        if too_slow:
+            self.batches_to_take = max(MIN_BATCH_SIZE, self.batches_to_take//2)
+        else:
+            self.batches_to_take = min(MAX_BATCH_SIZE, self.batches_to_take+2)
+
+        # preprocessing
         if prev_state and not too_slow:
-            self.masks[self.counter] = self.last_mask
-            self.next_masks[self.counter] = masks
+            self.masks[self.batch_counter] = self.last_mask     # save the last window
+            self.next_masks[self.batch_counter] = masks         # save the next windows
+            self.batch_states[self.batch_counter] = self.last_feature_vector    # save the last feature vectors
+            self.next_step_feature_vectors[self.batch_counter] = feature_vector # save the current feature vector
+            self.rewards[self.batch_counter] = reward                           # save the last rewars
+            self.batch_counter = (self.batch_counter + 1) % self.batch_size     # count how many states we save
+            if not self.full_batch and self.batch_counter==self.batch_size-1:
+                self.full_batch = True
 
-            self.batch_states[self.counter] = self.last_feature_vector
-            self.next_step_feature_vectors[self.counter] = feature_vector
-            self.rewards[self.counter] = reward
-            self.counter = (self.counter + 1) % self.batch_size
-            # print("counter:", self.counter, "\treward:", reward, "last action:", prev_action)
-            # print("last_mask:\n", self.last_mask)
-            # print("NEXT STATE : ")
-            # for i in range(len(bp.Policy.ACTIONS)):
-            #     print("action:", bp.Policy.ACTIONS[i])
-            #     print(masks[i])
-            # if self.counter == self.batch_size-1 and not self.full_batch:
-            #     self.full_batch = True
-
-        prediction = self.model.predict(feature_vector, batch_size=3)
+        prediction = self.model.predict(feature_vector, batch_size=3)   # get predictions for the current optional states
         max_value = np.max(prediction)
-        if prediction[2]==max_value:
+        if prediction[2]==max_value:    # forward
             argmax = 2
         elif prediction[0]==prediction[1]:
-            argmax = np.random.choice([0,1])
+            argmax = np.random.choice([0,1])    # random between right and left
         else:
             if prediction[0]==max_value:
-                argmax = 0
+                argmax = 0  # left
             else:
-                argmax = 1
-        action = bp.Policy.ACTIONS[argmax]
-        # print("\n\nround:", round, "predictions:\n", prediction, "\naction:", action)
-        self.last_feature_vector = feature_vector[argmax]
-        self.last_mask = masks[argmax]
+                argmax = 1  # right
+
+        action = bp.Policy.ACTIONS[argmax]      # get the action according to the high prediction
+        self.last_feature_vector = feature_vector[argmax]   # get the feature vector of this prediction
+        self.last_mask = masks[argmax]          # keep the mask of the high prediction
 
         if np.random.rand() < self.epsilon:
             action = np.random.choice(bp.Policy.ACTIONS)
-            # print("random:\n", action)
+            # keep the feature vector for the random action
             self.last_feature_vector, self.last_mask = self.get_last_feature_vector(new_state, action)
-            # print("\nRANDOM action:", action)
-            # print("mask:\n", mask)
             return action
         else:
-            # print("predictions:\n", prediction)
-            # print("action:", action,"\nmask:\n", masks[argmax] )
             return action
 
