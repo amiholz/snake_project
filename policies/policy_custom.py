@@ -6,17 +6,16 @@ from keras.layers import Convolution2D, MaxPooling2D
 from keras.layers import Dense, Dropout, Activation, Flatten
 from keras.datasets import mnist
 
-LEARNING_RATE = 0.3
 GAMMA = 0.9
 SHIFT = 1
-EPSILON = 0.1
+EPSILON = 0.5
 MIN_EPSILON = 0.01
 EPSILON_RATE = 0.9
 ROTATIONS = {'N':0, 'S':2, 'W':-1, 'E':1}
 NUM_OF_FEATURES = 11
 WINDOW_SIZE = 9
 EPSILON_ROUNDS = 20
-BATCH_SIZE = 5
+BATCH_SIZE = 10
 
 class Custom(bp.Policy):
     """
@@ -29,7 +28,6 @@ class Custom(bp.Policy):
         policy_args['min_epsilon'] = float(policy_args['min_epsilon']) if 'min_epsilon' in policy_args else MIN_EPSILON
         policy_args['epsilon_rate'] = float(policy_args['epsilon_rate']) if 'epsilon_rate' in policy_args else EPSILON_RATE
         policy_args['epsilon_rounds'] = float(policy_args['epsilon_rounds']) if 'epsilon_rounds' in policy_args else EPSILON_ROUNDS
-        policy_args['rate'] = float(policy_args['rate']) if 'rate' in policy_args else LEARNING_RATE
         policy_args['batch_size'] = float(policy_args['batch_size']) if 'batch_size' in policy_args else BATCH_SIZE
         policy_args['gamma'] = float(policy_args['gamma']) if 'gamma' in policy_args else GAMMA
         policy_args['shift'] = float(policy_args['shift']) if 'shift' in policy_args else SHIFT
@@ -38,7 +36,7 @@ class Custom(bp.Policy):
     def init_run(self):
         self.r_sum = 0
         self.model = Sequential()
-        self.model.add(Dense(10, activation='relu', input_shape=(WINDOW_SIZE*NUM_OF_FEATURES,)))
+        self.model.add(Dense(50, activation='relu', input_shape=(WINDOW_SIZE*NUM_OF_FEATURES,)))
         self.model.add(Dense(1))
         self.model.compile(loss='mean_squared_error',
                       optimizer='adam',
@@ -50,24 +48,30 @@ class Custom(bp.Policy):
         self.rewards = np.zeros(self.batch_size)
         self.full_batch = False
         self.last_mask = None
-        self.mask = None
+        self.masks = np.zeros((self.batch_size,3, 3))
+        self.next_masks = np.zeros((self.batch_size,3, 3, 3))
 
     def learn(self, round, prev_state, prev_action, reward, new_state, too_slow):
         # print("\n\nLEARN, reward:", self.epsilon ,"|slow:",too_slow)
         try:
+            # print("next_step_feature_vectors shape:", self.next_step_feature_vectors.shape)
+            # print("rewards:", self.rewards)
 
-            last_index = self.batch_size
-            if not self.full_batch:
-                last_index = self.counter
+            # get the max Q values for
+            Q_values = self.model.predict_on_batch(self.next_step_feature_vectors.reshape((3*self.batch_size, NUM_OF_FEATURES*WINDOW_SIZE)))
+            max_Q_values = np.reshape(Q_values, (self.batch_size,len(bp.Policy.ACTIONS))).max(axis=1)
+            # print("max_Q_values:", max_Q_values)
 
-            max_Q_values = self.model.predict_on_batch(self.next_step_feature_vectors.reshape((3*self.batch_size, NUM_OF_FEATURES*WINDOW_SIZE))).max(axis=1)
-            labels = self.rewards[:last_index] + (self.gamma*max_Q_values)
+            # for i in range(self.masks.shape[0]):
+            #     print("mask:\n", self.masks[i])
+
+            labels = self.rewards + (self.gamma*max_Q_values)
             # print("\nrewards:\n", self.rewards[:last_index])
             # print("max Q values:\n", self.max_Q_values[:last_index])
             # print("labels:\n", labels)
             # print("last states:\n", self.batch_states[:last_index])
 
-            self.model.train_on_batch(self.batch_states[:last_index], labels)
+            self.model.train_on_batch(self.batch_states, labels)
 
             if round % 100 == 0:
                 if round > self.game_duration - self.score_scope:
@@ -225,24 +229,29 @@ class Custom(bp.Policy):
 
     def act(self, round, prev_state, prev_action, reward, new_state, too_slow):
 
+        # epsilon decreases as we progress in the game
         if round%EPSILON_ROUNDS==EPSILON_ROUNDS-1 and self.epsilon>self.min_epsilon:
             self.epsilon*=self.epsilon_rate
 
-        feature_vector, self.mask = self.get_feature_vector(new_state)
+
+        feature_vector, masks = self.get_feature_vector(new_state)
 
         if prev_state and not too_slow:
+            self.masks[self.counter] = self.last_mask
+            self.next_masks[self.counter] = masks
+
             self.batch_states[self.counter] = self.last_feature_vector
             self.next_step_feature_vectors[self.counter] = feature_vector
             self.rewards[self.counter] = reward
             self.counter = (self.counter + 1) % self.batch_size
-            print("counter:", self.counter, "\treward:", reward, "last action:", prev_action)
-            print("last_mask:\n", self.last_mask)
-            print("NEXT STATE : ")
-            for i in range(len(bp.Policy.ACTIONS)):
-                print("action:", bp.Policy.ACTIONS[i])
-                print(self.mask[i])
-            if self.counter == self.batch_size-1 and not self.full_batch:
-                self.full_batch = True
+            # print("counter:", self.counter, "\treward:", reward, "last action:", prev_action)
+            # print("last_mask:\n", self.last_mask)
+            # print("NEXT STATE : ")
+            # for i in range(len(bp.Policy.ACTIONS)):
+            #     print("action:", bp.Policy.ACTIONS[i])
+            #     print(masks[i])
+            # if self.counter == self.batch_size-1 and not self.full_batch:
+            #     self.full_batch = True
 
         prediction = self.model.predict(feature_vector, batch_size=3)
         max_value = np.max(prediction)
@@ -258,17 +267,17 @@ class Custom(bp.Policy):
         action = bp.Policy.ACTIONS[argmax]
         # print("\n\nround:", round, "predictions:\n", prediction, "\naction:", action)
         self.last_feature_vector = feature_vector[argmax]
-        self.last_mask = self.mask[argmax]
+        self.last_mask = masks[argmax]
 
         if np.random.rand() < self.epsilon:
             action = np.random.choice(bp.Policy.ACTIONS)
-            print("random:\n", action)
+            # print("random:\n", action)
             self.last_feature_vector, self.last_mask = self.get_last_feature_vector(new_state, action)
             # print("\nRANDOM action:", action)
             # print("mask:\n", mask)
             return action
         else:
-            print("predictions:\n", prediction)
+            # print("predictions:\n", prediction)
             # print("action:", action,"\nmask:\n", masks[argmax] )
             return action
 
