@@ -6,7 +6,7 @@ from keras.layers import Convolution2D, MaxPooling2D
 from keras.layers import Dense, Dropout, Activation, Flatten
 from keras.datasets import mnist
 
-GAMMA = 0.9
+GAMMA = 0.8
 EPSILON = 0.6
 MIN_EPSILON = 0.1
 EPSILON_RATE = 0.9
@@ -18,7 +18,7 @@ MIN_BATCH_SIZE = 8
 MAX_BATCH_SIZE = 256
 NN = 30
 SHIFT = 1
-class Custom(bp.Policy):
+class Custom200863793(bp.Policy):
     """
     A policy which avoids collisions with obstacles and other snakes. It has an epsilon parameter which controls the
     percentag of actions which are randomly chosen.
@@ -59,12 +59,10 @@ class Custom(bp.Policy):
             # case we did not collect enough samples
             if not self.full_batch:
                 self.batches_to_take = self.batch_counter
-                print("size of batch:", self.batches_to_take)
             if too_slow:
                 self.batches_to_take = max(MIN_BATCH_SIZE, self.batches_to_take//2)
-                print("size of batch:", self.batches_to_take)
 
-            sort_rewards = np.argsort(self.rewards) # sort rewards because we want the best learning
+            sort_rewards = np.argsort(np.fabs(self.rewards)) # sort rewards because we want the best learning
             indices_to_take = sort_rewards[-self.batches_to_take:]
 
             # get the max Q values for the last "size of batch" examples
@@ -110,7 +108,6 @@ class Custom(bp.Policy):
         for i, action in enumerate(bp.Policy.ACTIONS):
             temp_direction = bp.Policy.TURNS[direction][action]
             new_head = list(head_pos.move(temp_direction))
-            # print("\nnew dir:", temp_direction, "new head_pos:", new_head)
 
             if new_head[1]==0:
                 temp_board = np.roll(board,SHIFT,axis=1)
@@ -200,7 +197,6 @@ class Custom(bp.Policy):
         # case of bad or good performence change size of batch
         if too_slow:
             self.batches_to_take = max(MIN_BATCH_SIZE, self.batches_to_take//2)
-            print("size of batch:", self.batches_to_take)
         else:
             self.batches_to_take = min(MAX_BATCH_SIZE, self.batches_to_take+2)
 

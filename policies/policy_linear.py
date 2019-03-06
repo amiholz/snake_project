@@ -6,7 +6,7 @@ LEARNING_RATE = 0.3
 GAMMA = 0.9
 NUM_OF_FEATURES = 11
 
-class Linear(bp.Policy):
+class Linear200863793(bp.Policy):
     """
     A policy which avoids collisions with obstacles and other snakes. It has an epsilon parameter which controls the
     percentag of actions which are randomly chosen.
