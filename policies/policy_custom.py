@@ -35,7 +35,6 @@ class Custom(bp.Policy):
 
     def init_run(self):
         self.r_sum = 0
-        print("NN:", NN)
         self.model = Sequential()
         self.model.add(Dense(NN, activation='relu', input_shape=(WINDOW_SIZE*NUM_OF_FEATURES,)))
         self.model.add(Dense(NN, activation='relu'))
@@ -60,7 +59,11 @@ class Custom(bp.Policy):
             # case we did not collect enough samples
             if not self.full_batch:
                 self.batches_to_take = self.batch_counter
-            print("size of batch:", self.batches_to_take)
+                print("size of batch:", self.batches_to_take)
+            if too_slow:
+                self.batches_to_take = max(MIN_BATCH_SIZE, self.batches_to_take//2)
+                print("size of batch:", self.batches_to_take)
+
             sort_rewards = np.argsort(self.rewards) # sort rewards because we want the best learning
             indices_to_take = sort_rewards[-self.batches_to_take:]
 
@@ -137,7 +140,7 @@ class Custom(bp.Policy):
                     new_head[0]-=SHIFT
                 else:
                     temp_board = board.copy()
-            crop_rotate_board = np.rot90(temp_board[new_head[0]-1:new_head[0]+2,new_head[1]-1:new_head[1]+2],ROTATIONS[temp_direction])
+            crop_rotate_board = np.rot90(temp_board[new_head[0]-SHIFT:new_head[0]+SHIFT+1,new_head[1]-SHIFT:new_head[1]+SHIFT+1],ROTATIONS[temp_direction])
             curr_board = crop_rotate_board.copy()
             curr_board[1,1] = head_value
             # masks.append(curr_board)
@@ -197,6 +200,7 @@ class Custom(bp.Policy):
         # case of bad or good performence change size of batch
         if too_slow:
             self.batches_to_take = max(MIN_BATCH_SIZE, self.batches_to_take//2)
+            print("size of batch:", self.batches_to_take)
         else:
             self.batches_to_take = min(MAX_BATCH_SIZE, self.batches_to_take+2)
 
