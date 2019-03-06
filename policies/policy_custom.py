@@ -1,7 +1,6 @@
 from policies import base_policy as bp
 import numpy as np
 import keras
-exit()
 from keras.models import Sequential
 from keras.layers import Convolution2D, MaxPooling2D
 from keras.layers import Dense, Dropout, Activation, Flatten
