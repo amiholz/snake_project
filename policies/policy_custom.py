@@ -245,8 +245,16 @@ class Custom(bp.Policy):
                 self.full_batch = True
 
         prediction = self.model.predict(feature_vector, batch_size=3)
-        # print("predictions:", prediction.T)
-        argmax = np.argmax(prediction)
+        max_value = np.max(prediction)
+        if prediction[2]==max_value:
+            argmax = 2
+        elif prediction[0]==prediction[1]:
+            argmax = np.random.choice([0,1])
+        else:
+            if prediction[0]==max_value:
+                argmax = 0
+            else:
+                argmax = 1
         action = bp.Policy.ACTIONS[argmax]
         # print("\n\nround:", round, "predictions:\n", prediction, "\naction:", action)
         self.last_feature_vector = feature_vector[argmax]
