@@ -17,7 +17,7 @@ WINDOW_SIZE = 9
 EPSILON_ROUNDS = 20
 MIN_BATCH_SIZE = 16
 MAX_BATCH_SIZE = 256
-
+NN = 20
 
 class Custom(bp.Policy):
     """
@@ -37,8 +37,9 @@ class Custom(bp.Policy):
 
     def init_run(self):
         self.r_sum = 0
+        print("NN:", NN)
         self.model = Sequential()
-        self.model.add(Dense(60, activation='relu', input_shape=(WINDOW_SIZE*NUM_OF_FEATURES,)))
+        self.model.add(Dense(NN, activation='relu', input_shape=(WINDOW_SIZE*NUM_OF_FEATURES,)))
         self.model.add(Dense(1))
         self.model.compile(loss='mean_squared_error',
                       optimizer='adam',
